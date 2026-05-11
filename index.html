@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IP 检测 · MyIP</title>
+  <meta name="description" content="查看您的真实 IP 地址、地理位置、ISP 信息及网络详情" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #050b18;
+      --surface: rgba(255,255,255,0.04);
+      --surface-hover: rgba(255,255,255,0.07);
+      --border: rgba(255,255,255,0.08);
+      --accent: #3b82f6;
+      --accent2: #8b5cf6;
+      --accent3: #06b6d4;
+      --text: #f1f5f9;
+      --muted: #64748b;
+      --success: #10b981;
+      --warning: #f59e0b;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background ── */
+    .bg-canvas {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(59,130,246,.18) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(139,92,246,.15) 0%, transparent 55%),
+        radial-gradient(ellipse 40% 40% at 60% 20%, rgba(6,182,212,.10) 0%, transparent 50%);
+    }
+    .grid-overlay {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, black 30%, transparent 100%);
+    }
+
+    /* ── Layout ── */
+    .page { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 60px 24px 80px; }
+
+    /* ── Header ── */
+    header { text-align: center; margin-bottom: 52px; }
+    .logo {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-size: 13px; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 28px;
+    }
+    .logo-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent); box-shadow: 0 0 12px var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: .5; transform: scale(1.4); }
+    }
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      font-weight: 700; line-height: 1.15; letter-spacing: -.02em;
+      background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .subtitle { margin-top: 12px; color: var(--muted); font-size: .95rem; }
+
+    /* ── IP Hero Card ── */
+    .ip-hero {
+      background: linear-gradient(135deg, rgba(59,130,246,.12), rgba(139,92,246,.10));
+      border: 1px solid rgba(59,130,246,.3);
+      border-radius: 24px; padding: 40px 32px; text-align: center;
+      margin-bottom: 28px; position: relative; overflow: hidden;
+      backdrop-filter: blur(20px);
+    }
+    .ip-hero::before {
+      content: '';
+      position: absolute; top: -60px; right: -60px;
+      width: 200px; height: 200px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(59,130,246,.2), transparent 70%);
+    }
+    .ip-label {
+      font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--accent); font-weight: 600; margin-bottom: 12px;
+    }
+    .ip-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-weight: 600; letter-spacing: -.01em;
+      background: linear-gradient(90deg, #60a5fa, #a78bfa, #67e8f9);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      min-height: 1.2em;
+    }
+    .ip-value.loading { animation: shimmer 1.5s ease-in-out infinite; }
+    @keyframes shimmer {
+      0%,100% { opacity: .4; }
+      50%      { opacity: .9; }
+    }
+    .ip-copy-btn {
+      margin-top: 16px; padding: 8px 20px; border-radius: 20px;
+      background: rgba(59,130,246,.2); border: 1px solid rgba(59,130,246,.4);
+      color: #93c5fd; font-size: .8rem; font-weight: 500; cursor: pointer;
+      transition: all .2s ease; font-family: inherit;
+    }
+    .ip-copy-btn:hover { background: rgba(59,130,246,.35); color: #fff; }
+    .ip-copy-btn:active { transform: scale(.96); }
+    .copy-hint { font-size: .75rem; color: var(--success); margin-top: 6px; height: 16px; transition: opacity .3s; opacity: 0; }
+    .copy-hint.show { opacity: 1; }
+
+    /* ── Info Grid ── */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 16px; }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px 22px;
+      transition: background .2s, border-color .2s, transform .2s;
+      backdrop-filter: blur(12px);
+    }
+    .card:hover { background: var(--surface-hover); border-color: rgba(255,255,255,.14); transform: translateY(-2px); }
+    .card-icon { font-size: 1.4rem; margin-bottom: 10px; }
+    .card-label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .card-value {
+      font-size: .95rem; font-weight: 500; color: var(--text);
+      word-break: break-all;
+    }
+    .card-value.mono { font-family: 'JetBrains Mono', monospace; font-size: .85rem; }
+    .card-value.skeleton {
+      height: 18px; border-radius: 6px;
+      background: linear-gradient(90deg, rgba(255,255,255,.06) 25%, rgba(255,255,255,.1) 50%, rgba(255,255,255,.06) 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s infinite;
+      width: 70%;
+    }
+    @keyframes loading {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .badge {
+      display: inline-block; padding: 2px 10px; border-radius: 20px;
+      font-size: .72rem; font-weight: 600; letter-spacing: .06em;
+    }
+    .badge-blue  { background: rgba(59,130,246,.18); color: #93c5fd; border: 1px solid rgba(59,130,246,.3); }
+    .badge-green { background: rgba(16,185,129,.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,.25); }
+    .badge-purple{ background: rgba(139,92,246,.18); color: #c4b5fd; border: 1px solid rgba(139,92,246,.3); }
+
+    /* ── Map preview ── */
+    .map-wrap {
+      border-radius: 16px; overflow: hidden; border: 1px solid var(--border);
+      margin-bottom: 16px; height: 280px; position: relative; background: #0a1628;
+    }
+    #map { width: 100%; height: 100%; }
+    .map-placeholder {
+      display: flex; align-items: center; justify-content: center;
+      height: 100%; color: var(--muted); font-size: .9rem; flex-direction: column; gap: 8px;
+    }
+    .map-placeholder span { font-size: 2rem; }
+
+    /* ── UA Section ── */
+    .ua-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px 22px; margin-bottom: 28px;
+      backdrop-filter: blur(12px);
+    }
+    .ua-box .card-label { margin-bottom: 8px; }
+    .ua-text { font-family: 'JetBrains Mono', monospace; font-size: .78rem; color: #94a3b8; line-height: 1.6; word-break: break-all; }
+
+    /* ── Refresh button ── */
+    .refresh-btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      margin: 0 auto; padding: 12px 32px; border-radius: 50px;
+      background: linear-gradient(135deg, rgba(59,130,246,.25), rgba(139,92,246,.2));
+      border: 1px solid rgba(100,150,255,.3); color: #93c5fd;
+      font-size: .9rem; font-weight: 500; cursor: pointer;
+      transition: all .25s ease; font-family: inherit;
+    }
+    .refresh-btn:hover { background: linear-gradient(135deg,rgba(59,130,246,.4),rgba(139,92,246,.35)); border-color: rgba(100,150,255,.5); color: #fff; transform: translateY(-1px); }
+    .refresh-btn:active { transform: scale(.97); }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Footer ── */
+    footer { text-align: center; margin-top: 60px; color: var(--muted); font-size: .78rem; line-height: 1.8; }
+    footer a { color: #475569; text-decoration: none; }
+    footer a:hover { color: var(--accent); }
+
+    /* ── IPv6 indicator ── */
+    .ip-type-badge {
+      display: inline-block; margin-top: 10px;
+      padding: 3px 12px; border-radius: 20px; font-size: .72rem; font-weight: 600;
+    }
+
+    /* ── Section divider ── */
+    .section-header {
+      display: flex; align-items: center; gap: 12px;
+      margin: 36px 0 18px;
+    }
+    .section-header-line {
+      flex: 1; height: 1px;
+      background: linear-gradient(90deg, rgba(255,255,255,.1), transparent);
+    }
+    .section-header-title {
+      font-size: .78rem; font-weight: 600; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* ── China DB cards ── */
+    .db-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .db-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px 22px;
+      transition: background .2s, border-color .2s, transform .2s;
+      backdrop-filter: blur(12px); position: relative; overflow: hidden;
+    }
+    .db-card:hover { background: var(--surface-hover); border-color: rgba(255,255,255,.14); transform: translateY(-2px); }
+    .db-card-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .db-name { font-size: .82rem; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 7px; }
+    .db-status {
+      font-size: .68rem; font-weight: 600; letter-spacing: .05em;
+      padding: 2px 8px; border-radius: 10px;
+    }
+    .db-status.loading { background: rgba(245,158,11,.15); color: #fcd34d; border: 1px solid rgba(245,158,11,.25); }
+    .db-status.ok      { background: rgba(16,185,129,.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,.25); }
+    .db-status.error   { background: rgba(239,68,68,.12);  color: #fca5a5; border: 1px solid rgba(239,68,68,.2); }
+    .db-row { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+    .db-row:last-child { margin-bottom: 0; }
+    .db-row-label { font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+    .db-row-val { font-size: .88rem; font-weight: 500; color: var(--text); word-break: break-all; }
+    .db-row-val.mono { font-family: 'JetBrains Mono', monospace; font-size: .8rem; }
+    .db-row-val.skel {
+      height: 14px; width: 75%; border-radius: 5px;
+      background: linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.06) 75%);
+      background-size: 200% 100%; animation: loading 1.5s infinite;
+    }
+    .db-shine {
+      position: absolute; top: -40px; right: -40px;
+      width: 120px; height: 120px; border-radius: 50%; pointer-events: none;
+    }
+
+    /* ── Proxy Detection Panel ── */
+    .proxy-panel {
+      border-radius: 20px; overflow: hidden;
+      border: 1px solid var(--border);
+      margin-bottom: 16px; backdrop-filter: blur(12px);
+    }
+    .proxy-cols {
+      display: grid; grid-template-columns: 1fr 48px 1fr;
+      gap: 0;
+    }
+    .proxy-col {
+      background: var(--surface); padding: 22px 20px;
+      transition: background .2s;
+    }
+    .proxy-col:hover { background: var(--surface-hover); }
+    .proxy-col-divider {
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,.02); border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+      font-size: 1rem; color: var(--muted);
+    }
+    .proxy-col-label {
+      font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 6px;
+    }
+    .proxy-col-ip {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .95rem; font-weight: 600;
+      word-break: break-all; min-height: 1.2em;
+    }
+    .proxy-col-ip.skel {
+      height: 18px; width: 80%; border-radius: 5px;
+      background: linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.06) 75%);
+      background-size: 200% 100%; animation: loading 1.5s infinite;
+    }
+    .proxy-col-sub { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+    .proxy-local-list {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
+    }
+    .proxy-local-tag {
+      font-family: 'JetBrains Mono', monospace; font-size: .72rem;
+      padding: 2px 9px; border-radius: 20px;
+      background: rgba(255,255,255,.06); border: 1px solid var(--border); color: var(--muted);
+    }
+    /* Status banner */
+    .proxy-status-bar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 20px; border-top: 1px solid var(--border);
+      font-size: .82rem; font-weight: 500;
+    }
+    .proxy-status-bar.detected  { background: rgba(239,68,68,.08); color: #fca5a5; }
+    .proxy-status-bar.clean     { background: rgba(16,185,129,.07); color: #6ee7b7; }
+    .proxy-status-bar.loading   { background: rgba(245,158,11,.07); color: #fcd34d; }
+    .proxy-status-bar.no-webrtc { background: rgba(148,163,184,.07); color: var(--muted); }
+    .proxy-status-icon { font-size: 1.15rem; flex-shrink: 0; }
+    .proxy-status-desc { font-size: .75rem; margin-top: 2px; opacity: .7; }
+
+    @media (max-width: 600px) {
+      .proxy-cols { grid-template-columns: 1fr; }
+      .proxy-col-divider { display: none; }
+    }
+    @media (max-width: 500px) {
+      .page { padding: 40px 16px 60px; }
+      .ip-hero { padding: 28px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-canvas"></div>
+  <div class="grid-overlay"></div>
+
+  <main class="page">
+    <!-- Header -->
+    <header>
+      <div class="logo">
+        <div class="logo-dot"></div>
+        MyIP · IP 检测工具
+      </div>
+      <h1>查看您的网络信息</h1>
+      <p class="subtitle">实时检测 IP 地址、地理位置、ISP 及更多网络详情</p>
+    </header>
+
+    <!-- IP Hero -->
+    <div class="ip-hero">
+      <div class="ip-label">您的公网 IP 地址</div>
+      <div class="ip-value loading" id="ip-display">检测中…</div>
+      <div id="ip-type-badge"></div>
+      <button class="ip-copy-btn" id="copy-btn" onclick="copyIP()">📋 复制 IP</button>
+      <div class="copy-hint" id="copy-hint">✅ 已复制到剪贴板</div>
+    </div>
+
+    <!-- Info Grid -->
+    <div class="grid" id="info-grid">
+      <!-- Cards injected by JS -->
+      <div class="card"><div class="card-icon">🌍</div><div class="card-label">国家 / 地区</div><div class="card-value skeleton"></div></div>
+      <div class="card"><div class="card-icon">🏙️</div><div class="card-label">城市</div><div class="card-value skeleton"></div></div>
+      <div class="card"><div class="card-icon">🗺️</div><div class="card-label">经纬度</div><div class="card-value skeleton"></div></div>
+      <div class="card"><div class="card-icon">🕐</div><div class="card-label">时区</div><div class="card-value skeleton"></div></div>
+      <div class="card"><div class="card-icon">🏢</div><div class="card-label">ISP / 运营商</div><div class="card-value skeleton"></div></div>
+      <div class="card"><div class="card-icon">🔢</div><div class="card-label">ASN</div><div class="card-value skeleton"></div></div>
+      <div class="card"><div class="card-icon">⚡</div><div class="card-label">协议</div><div class="card-value skeleton"></div></div>
+      <div class="card"><div class="card-icon">☁️</div><div class="card-label">Cloudflare 节点</div><div class="card-value skeleton"></div></div>
+    </div>
+
+    <!-- User Agent -->
+    <div class="ua-box">
+      <div class="card-label">🖥️ &nbsp;User Agent</div>
+      <div class="ua-text" id="ua-text">检测中…</div>
+    </div>
+
+    <!-- Proxy Detection Section -->
+    <div class="section-header">
+      <div class="section-header-line"></div>
+      <div class="section-header-title">🔍 代理 / 真实 IP 对比检测</div>
+      <div class="section-header-line" style="background:linear-gradient(90deg,transparent,rgba(255,255,255,.1))"></div>
+    </div>
+    <div class="proxy-panel" id="proxy-panel">
+      <div class="proxy-cols">
+        <!-- HTTP IP (proxied) -->
+        <div class="proxy-col">
+          <div class="proxy-col-label">🌐 请求 IP（代理后）</div>
+          <div class="proxy-col-ip skel" id="pxy-http-ip"></div>
+          <div class="proxy-col-sub" id="pxy-http-sub">通过 HTTP 请求检测 · 会经过代理</div>
+        </div>
+        <div class="proxy-col-divider">⇄</div>
+        <!-- WebRTC IP (real) -->
+        <div class="proxy-col">
+          <div class="proxy-col-label">📡 WebRTC IP（真实/代理前）</div>
+          <div class="proxy-col-ip skel" id="pxy-rtc-ip"></div>
+          <div class="proxy-col-sub" id="pxy-rtc-sub">STUN 协议绕过代理 · 反映真实出口 IP</div>
+          <div class="proxy-local-list" id="pxy-local-list"></div>
+        </div>
+      </div>
+      <div class="proxy-status-bar loading" id="proxy-status-bar">
+        <div class="proxy-status-icon">⏳</div>
+        <div>
+          <div>检测中，正在通过 WebRTC 获取真实 IP…</div>
+          <div class="proxy-status-desc">使用 STUN 服务器探测出口 IP，不会建立实际连接</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- China IP DB Section -->
+    <div class="section-header">
+      <div class="section-header-line"></div>
+      <div class="section-header-title">🇨🇳 中国 IP 数据库对比</div>
+      <div class="section-header-line" style="background:linear-gradient(90deg,transparent,rgba(255,255,255,.1))"></div>
+    </div>
+    <div class="db-grid" id="db-grid">
+      <!-- injected by JS -->
+      <div class="db-card"><div class="db-shine" style="background:radial-gradient(circle,rgba(239,68,68,.15),transparent 70%)"></div><div class="db-card-head"><div class="db-name">🔴 搜狐 IP 库</div><div class="db-status loading">检测中</div></div><div class="db-row"><div class="db-row-label">IP 归属地</div><div class="db-row-val skel"></div></div><div class="db-row"><div class="db-row-label">城市</div><div class="db-row-val skel"></div></div></div>
+      <div class="db-card"><div class="db-shine" style="background:radial-gradient(circle,rgba(59,130,246,.15),transparent 70%)"></div><div class="db-card-head"><div class="db-name">🌐 IP.SB</div><div class="db-status loading">检测中</div></div><div class="db-row"><div class="db-row-label">ISP / 组织</div><div class="db-row-val skel"></div></div><div class="db-row"><div class="db-row-label">城市 / 省份</div><div class="db-row-val skel"></div></div></div>
+      <div class="db-card"><div class="db-shine" style="background:radial-gradient(circle,rgba(16,185,129,.15),transparent 70%)"></div><div class="db-card-head"><div class="db-name">🟢 太平洋网络</div><div class="db-status loading">检测中</div></div><div class="db-row"><div class="db-row-label">运营商</div><div class="db-row-val skel"></div></div><div class="db-row"><div class="db-row-label">地区</div><div class="db-row-val skel"></div></div></div>
+    </div>
+
+    <!-- Refresh -->
+    <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
+      <svg id="refresh-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <polyline points="1 20 1 14 7 14"></polyline>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+      </svg>
+      刷新检测
+    </button>
+
+    <footer>
+      <p>数据来源于 Cloudflare 网络层 · 不记录任何个人信息</p>
+      <p style="margin-top:4px">Powered by <a href="https://pages.cloudflare.com" target="_blank">Cloudflare Pages</a></p>
+    </footer>
+  </main>
+
+  <script>
+    const COUNTRY_NAMES = {
+      CN:'中国', US:'美国', JP:'日本', KR:'韩国', SG:'新加坡', HK:'香港',
+      TW:'台湾', DE:'德国', GB:'英国', FR:'法国', CA:'加拿大', AU:'澳大利亚',
+      RU:'俄罗斯', IN:'印度', BR:'巴西', NL:'荷兰', SE:'瑞典', NO:'挪威',
+      FI:'芬兰', CH:'瑞士', IT:'意大利', ES:'西班牙', PL:'波兰', MX:'墨西哥',
+    };
+    const CONTINENT_NAMES = {
+      AS:'亚洲', EU:'欧洲', NA:'北美洲', SA:'南美洲', AF:'非洲', OC:'大洋洲', AN:'南极洲',
+    };
+    const FLAGS = {
+      CN:'🇨🇳', US:'🇺🇸', JP:'🇯🇵', KR:'🇰🇷', SG:'🇸🇬', HK:'🇭🇰',
+      TW:'🇹🇼', DE:'🇩🇪', GB:'🇬🇧', FR:'🇫🇷', CA:'🇨🇦', AU:'🇦🇺',
+      RU:'🇷🇺', IN:'🇮🇳', BR:'🇧🇷', NL:'🇳🇱', SE:'🇸🇪', NO:'🇳🇴',
+      FI:'🇫🇮', CH:'🇨🇭', IT:'🇮🇹', ES:'🇪🇸', PL:'🇵🇱', MX:'🇲🇽',
+    };
+
+    let cachedIP = '';
+
+    function isIPv6(ip) {
+      return ip && ip.includes(':');
+    }
+
+    function buildGrid(d) {
+      const countryName = (FLAGS[d.country] || '') + ' ' + (COUNTRY_NAMES[d.country] || d.country || '未知');
+      const continentName = CONTINENT_NAMES[d.continent] || d.continent || '';
+      const cityStr = [d.city, d.region].filter(Boolean).join('，') || '未知';
+      const latLon = (d.latitude && d.longitude)
+        ? `${d.latitude.toFixed(4)}°N, ${d.longitude.toFixed(4)}°E`
+        : '未知';
+      const timezone = d.timezone || '未知';
+      const isp = d.asOrg || '未知';
+      const asn = d.asn || '未知';
+      const proto = d.protocol || '未知';
+      const colo = d.colo || '未知';
+
+      const cards = [
+        { icon:'🌍', label:'国家 / 地区', value: countryName + (continentName ? ` <span class="badge badge-blue">${continentName}</span>` : ''), raw: true },
+        { icon:'🏙️', label:'城市 / 省份', value: cityStr },
+        { icon:'🗺️', label:'经纬度坐标', value: latLon, mono: true },
+        { icon:'🕐', label:'时区', value: timezone, mono: true },
+        { icon:'🏢', label:'ISP / 运营商', value: isp },
+        { icon:'🔢', label:'ASN 编号', value: asn, mono: true },
+        { icon:'⚡', label:'连接协议', value: `<span class="badge badge-green">${proto}</span>`, raw: true },
+        { icon:'☁️', label:'Cloudflare 节点', value: colo ? `<span class="badge badge-purple">${colo}</span>` : '未知', raw: true },
+      ];
+
+      const grid = document.getElementById('info-grid');
+      grid.innerHTML = cards.map(c => `
+        <div class="card">
+          <div class="card-icon">${c.icon}</div>
+          <div class="card-label">${c.label}</div>
+          <div class="card-value${c.mono ? ' mono' : ''}">${c.raw ? c.value : escHtml(c.value)}</div>
+        </div>
+      `).join('');
+    }
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+
+    /* ════════════════════════════════════════
+       代理 / WebRTC 真实 IP 检测
+    ════════════════════════════════════════ */
+
+    function isPrivateIP(ip) {
+      if (!ip) return false;
+      if (ip.includes(':')) {
+        // IPv6 link-local / loopback
+        return ip === '::1' || ip.startsWith('fe80:') || ip.startsWith('fc') || ip.startsWith('fd');
+      }
+      const p = ip.split('.').map(Number);
+      return p[0] === 10 ||
+             p[0] === 127 ||
+             (p[0] === 172 && p[1] >= 16 && p[1] <= 31) ||
+             (p[0] === 192 && p[1] === 168) ||
+             (p[0] === 169 && p[1] === 254);
+    }
+
+    function getWebRTCIPs() {
+      return new Promise((resolve) => {
+        if (!window.RTCPeerConnection) {
+          resolve({ local: [], public: [], supported: false });
+          return;
+        }
+        const local = new Set();
+        const pub   = new Set();
+        let done = false;
+
+        const pc = new RTCPeerConnection({
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun.cloudflare.com:3478' },
+            { urls: 'stun:stun.qq.com:3478' },
+          ]
+        });
+        pc.createDataChannel('__rtc_leak_test__');
+
+        function finish() {
+          if (done) return;
+          done = true;
+          try { pc.close(); } catch(_) {}
+          resolve({ local: [...local], public: [...pub], supported: true });
+        }
+
+        pc.onicecandidate = (e) => {
+          if (!e.candidate) { finish(); return; }
+          const cand = e.candidate.candidate || '';
+          // extract IPv4
+          const ipv4 = cand.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g) || [];
+          // extract IPv6 (simplified)
+          const ipv6 = cand.match(/\b([0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7})\b/gi) || [];
+          [...ipv4, ...ipv6].forEach(ip => {
+            if (ip === '0.0.0.0' || ip === '::' || ip === '::1') return;
+            if (isPrivateIP(ip)) local.add(ip);
+            else pub.add(ip);
+          });
+        };
+
+        pc.createOffer()
+          .then(o => pc.setLocalDescription(o))
+          .catch(finish);
+
+        // Timeout after 7s
+        setTimeout(finish, 7000);
+      });
+    }
+
+    async function runProxyDetection() {
+      const httpIPEl   = document.getElementById('pxy-http-ip');
+      const rtcIPEl    = document.getElementById('pxy-rtc-ip');
+      const rtcSubEl   = document.getElementById('pxy-rtc-sub');
+      const localList  = document.getElementById('pxy-local-list');
+      const statusBar  = document.getElementById('proxy-status-bar');
+
+      // Show the HTTP IP immediately (already in cachedIP)
+      if (cachedIP) {
+        httpIPEl.classList.remove('skel');
+        httpIPEl.textContent = cachedIP;
+      }
+
+      // Run WebRTC
+      const rtc = await getWebRTCIPs();
+
+      if (!rtc.supported) {
+        rtcIPEl.classList.remove('skel');
+        rtcIPEl.textContent = '不支持';
+        rtcSubEl.textContent = '浏览器不支持 WebRTC，无法检测真实 IP';
+        statusBar.className = 'proxy-status-bar no-webrtc';
+        statusBar.innerHTML = `<div class="proxy-status-icon">ℹ️</div><div><div>浏览器不支持 WebRTC 检测</div><div class="proxy-status-desc">请使用支持 WebRTC 的现代浏览器</div></div>`;
+        return;
+      }
+
+      // Update HTTP IP (in case it wasn't ready earlier)
+      httpIPEl.classList.remove('skel');
+      httpIPEl.textContent = cachedIP || '未知';
+
+      // Display WebRTC public IPs
+      rtcIPEl.classList.remove('skel');
+      if (rtc.public.length > 0) {
+        rtcIPEl.textContent = rtc.public[0];
+        if (rtc.public.length > 1) {
+          rtcSubEl.textContent = `检测到 ${rtc.public.length} 个公网 IP：${rtc.public.join('、')}`;
+        } else {
+          rtcSubEl.textContent = 'WebRTC STUN 探测到的出口公网 IP';
+        }
+      } else {
+        rtcIPEl.textContent = '未获取到';
+        rtcSubEl.textContent = 'STUN 未返回公网 IP（可能被浏览器策略阻止）';
+      }
+
+      // Display local IPs
+      localList.innerHTML = rtc.local.length > 0
+        ? '<span style="font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);width:100%;display:block;margin-bottom:4px">🏠 本地局域网 IP</span>' +
+          rtc.local.map(ip => `<span class="proxy-local-tag">${escHtml(ip)}</span>`).join('')
+        : '';
+
+      // Determine proxy status
+      const httpIP = cachedIP;
+      const rtcPub = rtc.public[0] || '';
+      const sameIP = httpIP && rtcPub && httpIP === rtcPub;
+      const noRtcPub = rtc.public.length === 0;
+
+      if (noRtcPub) {
+        statusBar.className = 'proxy-status-bar no-webrtc';
+        statusBar.innerHTML = `
+          <div class="proxy-status-icon">🔒</div>
+          <div>
+            <div>WebRTC 未泄露公网 IP</div>
+            <div class="proxy-status-desc">浏览器已屏蔽 WebRTC 公网 IP 泄露，或您使用了支持 WebRTC 保护的代理工具</div>
+          </div>`;
+      } else if (sameIP) {
+        statusBar.className = 'proxy-status-bar clean';
+        statusBar.innerHTML = `
+          <div class="proxy-status-icon">✅</div>
+          <div>
+            <div>未检测到代理 / 两端 IP 一致</div>
+            <div class="proxy-status-desc">HTTP 请求 IP 与 WebRTC 出口 IP 相同（${escHtml(httpIP)}），当前未使用代理或使用了全局代理</div>
+          </div>`;
+      } else {
+        statusBar.className = 'proxy-status-bar detected';
+        statusBar.innerHTML = `
+          <div class="proxy-status-icon">⚠️</div>
+          <div>
+            <div>检测到代理！请求 IP 与 WebRTC IP 不同</div>
+            <div class="proxy-status-desc">代理后 IP: <b>${escHtml(httpIP)}</b>　真实出口 IP: <b>${escHtml(rtcPub)}</b>　&nbsp;— 可能正在使用 PAC / 系统代理</div>
+          </div>`;
+      }
+    }
+
+    function copyIP() {
+      if (!cachedIP) return;
+      navigator.clipboard.writeText(cachedIP).then(() => {
+        const hint = document.getElementById('copy-hint');
+        hint.classList.add('show');
+        setTimeout(() => hint.classList.remove('show'), 2200);
+      });
+    }
+
+    /* ════════════════════════════════════════
+       中国 IP 数据库多源对比查询
+    ════════════════════════════════════════ */
+
+    // ── 搜狐IP (script-tag, sets window.returnCitySN) ──
+    function fetchSohu() {
+      return new Promise((resolve, reject) => {
+        delete window.returnCitySN;
+        const old = document.getElementById('_sohu_script');
+        if (old) old.remove();
+        const s = document.createElement('script');
+        s.id = '_sohu_script';
+        s.src = 'https://pv.sohu.com/cityjson?ie=utf-8&t=' + Date.now();
+        const timer = setTimeout(() => { s.remove(); reject(new Error('timeout')); }, 6000);
+        s.onload = () => {
+          clearTimeout(timer); s.remove();
+          if (window.returnCitySN) resolve(window.returnCitySN);
+          else reject(new Error('no data'));
+        };
+        s.onerror = () => { clearTimeout(timer); s.remove(); reject(new Error('load error')); };
+        document.head.appendChild(s);
+      });
+    }
+
+    // ── IP.SB GeoIP (CORS enabled, good for Chinese IPs) ──
+    async function fetchIPSB() {
+      const r = await fetch('https://api.ip.sb/geoip', {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }
+
+    // ── 太平洋网络 pconline (Chinese ISP data) ──
+    async function fetchPconline(ip) {
+      // pconline returns JSONP; we use a CORS-proxy-free trick via no-cors + read via script
+      // Fallback: use their public JSON endpoint with the detected IP
+      const url = ip
+        ? `https://whois.pconline.com.cn/ipJson.jsp?ip=${encodeURIComponent(ip)}&json=true`
+        : 'https://whois.pconline.com.cn/ipJson.jsp?json=true';
+      // pconline doesn't support CORS, use fetch with no-cors won't give readable response
+      // Instead use a script-tag trick (it returns JSON directly, not JSONP)
+      return new Promise((resolve, reject) => {
+        const old = document.getElementById('_pconline_script');
+        if (old) old.remove();
+        // pconline returns raw JSON when ?json=true, load via fetch through a CORS-friendly workaround
+        // Actually pconline blocks CORS. Use ip.cn API instead.
+        fetchIPCN(ip).then(resolve).catch(reject);
+      });
+    }
+
+    // ── IP.CN (Aliyun-based, Chinese address in Chinese) ──
+    async function fetchIPCN(ip) {
+      const q = ip ? `?ip=${encodeURIComponent(ip)}` : '';
+      const r = await fetch(`https://ip.cn/api/index${q}`, {
+        headers: { 'Accept': 'application/json', 'Referer': 'https://ip.cn/' },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }
+
+    function renderDBCard(id, name, icon, accentColor, statusText, statusClass, rows) {
+      return `
+        <div class="db-card">
+          <div class="db-shine" style="background:radial-gradient(circle,${accentColor},transparent 70%)"></div>
+          <div class="db-card-head">
+            <div class="db-name">${icon} ${escHtml(name)}</div>
+            <div class="db-status ${statusClass}">${escHtml(statusText)}</div>
+          </div>
+          ${rows.map(r => `
+            <div class="db-row">
+              <div class="db-row-label">${escHtml(r.label)}</div>
+              <div class="db-row-val${r.mono ? ' mono' : ''}">${r.raw ? r.value : escHtml(String(r.value || '—'))}</div>
+            </div>`).join('')}
+        </div>`;
+    }
+
+    function skeletonCard(name, icon, accentColor) {
+      return `
+        <div class="db-card">
+          <div class="db-shine" style="background:radial-gradient(circle,${accentColor},transparent 70%)"></div>
+          <div class="db-card-head">
+            <div class="db-name">${icon} ${name}</div>
+            <div class="db-status loading">检测中</div>
+          </div>
+          <div class="db-row"><div class="db-row-label">归属地</div><div class="db-row-val skel"></div></div>
+          <div class="db-row"><div class="db-row-label">运营商</div><div class="db-row-val skel"></div></div>
+        </div>`;
+    }
+
+    async function loadChinaDBs() {
+      const grid = document.getElementById('db-grid');
+      // Show skeleton
+      grid.innerHTML =
+        skeletonCard('搜狐 IP 库', '🔴', 'rgba(239,68,68,.15)') +
+        skeletonCard('IP.SB', '🌐', 'rgba(59,130,246,.15)') +
+        skeletonCard('IP.CN', '🟢', 'rgba(16,185,129,.15)');
+
+      const results = await Promise.allSettled([
+        fetchSohu(),
+        fetchIPSB(),
+        fetchIPCN(cachedIP),
+      ]);
+
+      const cards = [];
+
+      // ── 搜狐 ──
+      const sohuRes = results[0];
+      if (sohuRes.status === 'fulfilled') {
+        const d = sohuRes.value;
+        cards.push(renderDBCard('sohu', '搜狐 IP 库', '🔴', 'rgba(239,68,68,.15)', '正常', 'ok', [
+          { label: '检测 IP',  value: d.cip || '—', mono: true },
+          { label: '归属地',   value: d.cname || '—' },
+          { label: '区域代码', value: d.cid || '—', mono: true },
+        ]));
+      } else {
+        cards.push(renderDBCard('sohu', '搜狐 IP 库', '🔴', 'rgba(239,68,68,.15)', '超时/失败', 'error', [
+          { label: '说明', value: '搜狐 IP 服务不可用（可能被 CORS 阻止）' },
+        ]));
+      }
+
+      // ── IP.SB ──
+      const isbRes = results[1];
+      if (isbRes.status === 'fulfilled') {
+        const d = isbRes.value;
+        const loc = [d.city, d.region, d.country_code].filter(Boolean).join(' / ');
+        cards.push(renderDBCard('ipsb', 'IP.SB', '🌐', 'rgba(59,130,246,.15)', '正常', 'ok', [
+          { label: '检测 IP',   value: d.ip || '—', mono: true },
+          { label: '位置',      value: loc || '—' },
+          { label: 'ISP / 组织', value: d.isp || d.organization || '—' },
+          { label: 'ASN',       value: d.asn ? 'AS' + d.asn : '—', mono: true },
+          { label: '时区',      value: d.timezone || '—' },
+        ]));
+      } else {
+        cards.push(renderDBCard('ipsb', 'IP.SB', '🌐', 'rgba(59,130,246,.15)', '失败', 'error', [
+          { label: '说明', value: 'IP.SB 服务不可用' },
+        ]));
+      }
+
+      // ── IP.CN ──
+      const icnRes = results[2];
+      if (icnRes.status === 'fulfilled') {
+        const d = icnRes.value;
+        // ip.cn returns: { rs:1, code:0, address:'中国 北京 联通', ip:'...', isDomain:0 }
+        const addr = d.address || d.region || '—';
+        cards.push(renderDBCard('ipcn', 'IP.CN', '🟢', 'rgba(16,185,129,.15)', '正常', 'ok', [
+          { label: '检测 IP', value: d.ip || cachedIP || '—', mono: true },
+          { label: '归属地',  value: addr },
+          { label: '运营商',  value: d.isp || (addr.split(' ')[2]) || '—' },
+        ]));
+      } else {
+        cards.push(renderDBCard('ipcn', 'IP.CN', '🟢', 'rgba(16,185,129,.15)', '失败', 'error', [
+          { label: '说明', value: 'IP.CN 服务不可用或 CORS 限制' },
+        ]));
+      }
+
+      grid.innerHTML = cards.join('');
+    }
+
+    loadData();
+
+    // Trigger China DB lookup after main data loads (wait a tick)
+    async function loadData() {
+      const ipEl     = document.getElementById('ip-display');
+      const badgeEl  = document.getElementById('ip-type-badge');
+      const uaEl     = document.getElementById('ua-text');
+      const icon     = document.getElementById('refresh-icon');
+      const btn      = document.getElementById('refresh-btn');
+
+      ipEl.textContent = '检测中…';
+      ipEl.classList.add('loading');
+      badgeEl.innerHTML = '';
+      icon.classList.add('spin');
+      btn.disabled = true;
+
+      const grid = document.getElementById('info-grid');
+      grid.innerHTML = Array(8).fill(0).map(() => `
+        <div class="card">
+          <div class="card-icon">⏳</div>
+          <div class="card-label">加载中</div>
+          <div class="card-value skeleton"></div>
+        </div>`).join('');
+
+      try {
+        const res = await fetch('/api/ip?t=' + Date.now());
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const d = await res.json();
+        cachedIP = d.ip || '';
+        ipEl.textContent = cachedIP || '无法获取';
+        ipEl.classList.remove('loading');
+        const v6 = isIPv6(cachedIP);
+        badgeEl.innerHTML = `<span class="ip-type-badge ${v6 ? 'badge-purple' : 'badge-blue'}">${v6 ? 'IPv6' : 'IPv4'}</span>`;
+        buildGrid(d);
+        uaEl.textContent = d.userAgent || navigator.userAgent;
+      } catch(e) {
+        try {
+          const r2 = await fetch('https://api.ip.sb/geoip', { headers: { Accept: 'application/json' } });
+          const d2 = await r2.json();
+          cachedIP = d2.ip || '';
+          ipEl.textContent = cachedIP || '无法获取';
+          ipEl.classList.remove('loading');
+          const v6 = isIPv6(cachedIP);
+          badgeEl.innerHTML = `<span class="ip-type-badge ${v6 ? 'badge-purple' : 'badge-blue'}">${v6 ? 'IPv6' : 'IPv4'}</span>`;
+          buildGrid({
+            ip: d2.ip, country: d2.country_code, city: d2.city,
+            region: d2.region, timezone: d2.timezone, continent: '',
+            longitude: d2.longitude, latitude: d2.latitude,
+            asn: d2.asn ? 'AS' + d2.asn : '', asOrg: d2.isp || d2.organization,
+            protocol: location.protocol.replace(':','').toUpperCase(), colo: '',
+          });
+          uaEl.textContent = navigator.userAgent;
+        } catch(e2) {
+          ipEl.textContent = '获取失败';
+          ipEl.classList.remove('loading');
+          uaEl.textContent = navigator.userAgent;
+        }
+      } finally {
+        icon.classList.remove('spin');
+        btn.disabled = false;
+      }
+
+      // Load auxiliary sections in parallel (non-blocking)
+      runProxyDetection();
+      loadChinaDBs();
+    }
+  </script>
+</body>
+</html>
