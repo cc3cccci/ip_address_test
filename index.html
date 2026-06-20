@@ -434,6 +434,16 @@
       <div class="ua-text" id="ua-text">检测中…</div>
     </div>
 
+    <!-- DB Grid Section -->
+    <div class="section-header">
+      <div class="section-header-line"></div>
+      <div class="section-header-title">📊 多数据库 IP 定位对比</div>
+      <div class="section-header-line" style="background:linear-gradient(90deg,transparent,rgba(255,255,255,.1))"></div>
+    </div>
+    <div class="db-grid" id="db-comparison-grid">
+      <!-- Database comparison cards injected by JS -->
+    </div>
+
     <!-- Proxy Detection Section -->
     <div class="section-header">
       <div class="section-header-line"></div>
@@ -464,6 +474,26 @@
           <div class="proxy-status-desc">使用 STUN 服务器探测出口 IP，不会建立实际连接</div>
         </div>
       </div>
+    </div>
+
+    <!-- Connectivity Section -->
+    <div class="section-header">
+      <div class="section-header-line"></div>
+      <div class="section-header-title">⚡ 常用网站连通性测试 (网络分流检测)</div>
+      <div class="section-header-line" style="background:linear-gradient(90deg,transparent,rgba(255,255,255,.1))"></div>
+    </div>
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-bottom: 28px;" id="connectivity-grid">
+      <!-- Connectivity items dynamically rendered -->
+    </div>
+
+    <!-- Fingerprint Section -->
+    <div class="section-header">
+      <div class="section-header-line"></div>
+      <div class="section-header-title">💻 浏览器与隐私指纹检测</div>
+      <div class="section-header-line" style="background:linear-gradient(90deg,transparent,rgba(255,255,255,.1))"></div>
+    </div>
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 28px;" id="fingerprint-grid">
+      <!-- Fingerprint details -->
     </div>
 
     </div>
@@ -708,11 +738,13 @@
         document.getElementById('ipv4-card').classList.add('active');
         document.getElementById('ipv6-card').classList.remove('active');
         buildGrid(ipv4Data);
+        loadDbComparison(ipv4Data.ip);
       } else if (ver === 'v6' && ipv6Data) {
         currentVersion = 'v6';
         document.getElementById('ipv6-card').classList.add('active');
         document.getElementById('ipv4-card').classList.remove('active');
         buildGrid(ipv6Data);
+        loadDbComparison(ipv6Data.ip);
       }
     }
 
@@ -736,6 +768,220 @@
       });
       clearTimeout(id);
       return response;
+    }
+
+    /* ════════════════════════════════════════
+       常用网站连通性测试 (网络分流检测)
+    ════════════════════════════════════════ */
+    const targetWebsites = [
+      { name: 'Baidu', testUrl: 'https://www.baidu.com/favicon.ico?t=' },
+      { name: 'Tencent', testUrl: 'https://www.qq.com/favicon.ico?t=' },
+      { name: 'Google', testUrl: 'https://www.google.com/generate_204?t=' },
+      { name: 'YouTube', testUrl: 'https://www.youtube.com/generate_204?t=' },
+      { name: 'GitHub', testUrl: 'https://github.com/favicon.ico?t=' },
+      { name: 'Cloudflare', testUrl: 'https://1.1.1.1/cdn-cgi/trace?t=' }
+    ];
+
+    async function testSite(site) {
+      const start = performance.now();
+      try {
+        await fetchWithTimeout(site.testUrl + Date.now(), {
+          mode: 'no-cors',
+          cache: 'no-store',
+          timeout: 4000
+        });
+        const duration = Math.round(performance.now() - start);
+        return { name: site.name, ok: true, duration };
+      } catch (e) {
+        return { name: site.name, ok: false };
+      }
+    }
+
+    async function runConnectivityTests() {
+      const grid = document.getElementById('connectivity-grid');
+      grid.innerHTML = targetWebsites.map(site => `
+        <div class="card" style="padding: 14px 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-height: 80px; align-items: center;">
+          <div class="card-label" style="margin-bottom: 6px;">${site.name}</div>
+          <div class="card-value skeleton" id="conn-${site.name.toLowerCase()}" style="height:18px; width:60px; border-radius:4px; margin: 0 auto;"></div>
+        </div>
+      `).join('');
+
+      const tests = targetWebsites.map(async site => {
+        const result = await testSite(site);
+        const el = document.getElementById(`conn-${site.name.toLowerCase()}`);
+        if (el) {
+          el.className = 'card-value';
+          el.style.height = 'auto';
+          el.style.width = 'auto';
+          if (result.ok) {
+            el.innerHTML = `<span class="badge badge-green" style="font-size:0.75rem;">${result.duration} ms</span>`;
+          } else {
+            el.innerHTML = `<span class="badge" style="font-size:0.72rem; background:rgba(239,68,68,.12); color:#fca5a5; border:1px solid rgba(239,68,68,.2)">超时/阻断</span>`;
+          }
+        }
+      });
+      await Promise.all(tests);
+    }
+
+    /* ════════════════════════════════════════
+       多数据库 IP 定位对比
+    ════════════════════════════════════════ */
+    async function loadDbComparison(ip) {
+      const dbGrid = document.getElementById('db-comparison-grid');
+      dbGrid.innerHTML = `
+        <div class="db-card">
+          <div class="db-card-head">
+            <div class="db-name">☁️ Cloudflare GeoIP</div>
+            <div class="db-status loading" id="db-status-cf">加载中</div>
+          </div>
+          <div class="db-row"><div class="db-row-label">IP 地址</div><div class="db-row-val mono" id="db-ip-cf">-</div></div>
+          <div class="db-row"><div class="db-row-label">地理位置</div><div class="db-row-val" id="db-geo-cf">-</div></div>
+          <div class="db-row"><div class="db-row-label">ASN / 运营商</div><div class="db-row-val" id="db-isp-cf">-</div></div>
+        </div>
+        <div class="db-card">
+          <div class="db-card-head">
+            <div class="db-name">📡 IP.SB GeoIP</div>
+            <div class="db-status loading" id="db-status-ipsb">加载中</div>
+          </div>
+          <div class="db-row"><div class="db-row-label">IP 地址</div><div class="db-row-val mono" id="db-ip-ipsb">-</div></div>
+          <div class="db-row"><div class="db-row-label">地理位置</div><div class="db-row-val" id="db-geo-ipsb">-</div></div>
+          <div class="db-row"><div class="db-row-label">ASN / 运营商</div><div class="db-row-val" id="db-isp-ipsb">-</div></div>
+        </div>
+        <div class="db-card">
+          <div class="db-card-head">
+            <div class="db-name">ℹ️ IPInfo.io GeoIP</div>
+            <div class="db-status loading" id="db-status-ipinfo">加载中</div>
+          </div>
+          <div class="db-row"><div class="db-row-label">IP 地址</div><div class="db-row-val mono" id="db-ip-ipinfo">-</div></div>
+          <div class="db-row"><div class="db-row-label">地理位置</div><div class="db-row-val" id="db-geo-ipinfo">-</div></div>
+          <div class="db-row"><div class="db-row-label">ASN / 运营商</div><div class="db-row-val" id="db-isp-ipinfo">-</div></div>
+        </div>
+      `;
+
+      // 1. Cloudflare DB
+      const cfStatus = document.getElementById('db-status-cf');
+      const cfIp = document.getElementById('db-ip-cf');
+      const cfGeo = document.getElementById('db-geo-cf');
+      const cfIsp = document.getElementById('db-isp-cf');
+
+      if (ip === primaryIP && ipv4Data && !isIPv6(ip) && currentVersion === 'v4') {
+        cfStatus.className = 'db-status ok';
+        cfStatus.textContent = '检测成功';
+        cfIp.textContent = primaryIP;
+        cfGeo.textContent = `${FLAGS[ipv4Data.country] || ''} ${COUNTRY_NAMES[ipv4Data.country] || ipv4Data.country || ''} ${ipv4Data.region || ''} ${ipv4Data.city || ''}`;
+        cfIsp.textContent = `${ipv4Data.asn || ''} ${ipv4Data.asOrg || ''}`;
+      } else if (ip === primaryIP && ipv6Data && isIPv6(ip) && currentVersion === 'v6') {
+        cfStatus.className = 'db-status ok';
+        cfStatus.textContent = '检测成功';
+        cfIp.textContent = primaryIP;
+        cfGeo.textContent = `${FLAGS[ipv6Data.country] || ''} ${COUNTRY_NAMES[ipv6Data.country] || ipv6Data.country || ''} ${ipv6Data.region || ''} ${ipv6Data.city || ''}`;
+        cfIsp.textContent = `${ipv6Data.asn || ''} ${ipv6Data.asOrg || ''}`;
+      } else {
+        cfStatus.className = 'db-status error';
+        cfStatus.textContent = '不可用';
+        cfIp.textContent = ip;
+        cfGeo.textContent = '仅支持主连接 IP 展示';
+        cfIsp.textContent = '-';
+      }
+
+      // 2. IP.SB DB
+      const ipsbStatus = document.getElementById('db-status-ipsb');
+      const ipsbIp = document.getElementById('db-ip-ipsb');
+      const ipsbGeo = document.getElementById('db-geo-ipsb');
+      const ipsbIsp = document.getElementById('db-isp-ipsb');
+
+      (async () => {
+        try {
+          let d = null;
+          if (ipv4Data && ipv4Data.ip === ip) d = ipv4Data;
+          else if (ipv6Data && ipv6Data.ip === ip) d = ipv6Data;
+          else {
+            const res = await fetchWithTimeout(`https://api.ip.sb/geoip/${ip}`, { timeout: 4000 });
+            if (!res.ok) throw new Error();
+            d = await res.json();
+          }
+          ipsbStatus.className = 'db-status ok';
+          ipsbStatus.textContent = '检测成功';
+          ipsbIp.textContent = d.ip;
+          ipsbGeo.textContent = `${FLAGS[d.country_code || d.country] || ''} ${COUNTRY_NAMES[d.country_code || d.country] || d.country || ''} ${d.region || ''} ${d.city || ''}`;
+          ipsbIsp.textContent = `${d.asn ? 'AS' + d.asn : ''} ${d.isp || d.organization || d.asOrg || ''}`;
+        } catch(e) {
+          ipsbStatus.className = 'db-status error';
+          ipsbStatus.textContent = '请求失败';
+          ipsbIp.textContent = ip;
+          ipsbGeo.textContent = '探测失败';
+          ipsbIsp.textContent = '-';
+        }
+      })();
+
+      // 3. IPInfo.io DB
+      const ipinfoStatus = document.getElementById('db-status-ipinfo');
+      const ipinfoIp = document.getElementById('db-ip-ipinfo');
+      const ipinfoGeo = document.getElementById('db-geo-ipinfo');
+      const ipinfoIsp = document.getElementById('db-isp-ipinfo');
+
+      (async () => {
+        try {
+          const res = await fetchWithTimeout(`https://ipinfo.io/${ip}/json`, { timeout: 4000 });
+          if (!res.ok) throw new Error();
+          const d = await res.json();
+          ipinfoStatus.className = 'db-status ok';
+          ipinfoStatus.textContent = '检测成功';
+          ipinfoIp.textContent = d.ip;
+          ipinfoGeo.textContent = `${FLAGS[d.country] || ''} ${COUNTRY_NAMES[d.country] || d.country || ''} ${d.region || ''} ${d.city || ''}`;
+          ipinfoIsp.textContent = d.org || '-';
+        } catch(e) {
+          ipinfoStatus.className = 'db-status error';
+          ipinfoStatus.textContent = '请求失败';
+          ipinfoIp.textContent = ip;
+          ipinfoGeo.textContent = '探测失败';
+          ipinfoIsp.textContent = '-';
+        }
+      })();
+    }
+
+    /* ════════════════════════════════════════
+       浏览器隐私指纹检测
+    ════════════════════════════════════════ */
+    function loadBrowserFingerprint() {
+      const grid = document.getElementById('fingerprint-grid');
+      let webgl = '未知';
+      try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (gl) {
+          const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+          webgl = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_VENDOR_SGIS) + ' / ' + gl.getParameter(debugInfo.UNMASKED_RENDERER_CHANGED_SGIS) : '支持';
+          webgl = webgl.replace(/ANGLE \((.*)\)/, '$1').split(',')[0];
+        } else {
+          webgl = '不支持';
+        }
+      } catch(e) {
+        webgl = '不支持';
+      }
+
+      const dnt = navigator.doNotTrack === "1" || navigator.doNotTrack === "yes" || navigator.msDoNotTrack === "1" ? "⚠️ 已开启 (DNT)" : "未开启";
+      const cookies = navigator.cookieEnabled ? "✅ 允许" : "❌ 禁用";
+      const lang = navigator.languages ? navigator.languages.join(', ') : navigator.language;
+      const res = `${window.screen.width} × ${window.screen.height} (DPR: ${window.devicePixelRatio})`;
+      const tzOffset = 'UTC ' + (new Date().getTimezoneOffset() / -60 >= 0 ? '+' : '') + (new Date().getTimezoneOffset() / -60);
+
+      const cards = [
+        { icon: '🌐', label: '浏览器主语言', value: lang },
+        { icon: '📺', label: '屏幕物理分辨率', value: res },
+        { icon: '🛡️', label: 'Do Not Track 状态', value: dnt },
+        { icon: '🍪', label: 'Cookie 支持', value: cookies },
+        { icon: '🎮', label: 'WebGL GPU 渲染器', value: webgl },
+        { icon: '⏰', label: '本机时区偏差', value: tzOffset }
+      ];
+
+      grid.innerHTML = cards.map(c => `
+        <div class="card">
+          <div class="card-icon">${c.icon}</div>
+          <div class="card-label">${c.label}</div>
+          <div class="card-value" style="font-size: 0.85rem; word-break: break-word;">${c.value}</div>
+        </div>
+      `).join('');
     }
 
     loadData();
@@ -810,6 +1056,7 @@
         }
         buildGrid(d);
         uaEl.textContent = d.userAgent || navigator.userAgent;
+        loadDbComparison(primaryIP);
       } catch(e) {
         console.error("Primary fetch failed, using fallback", e);
         uaEl.textContent = navigator.userAgent;
@@ -830,6 +1077,7 @@
           v4Sub.textContent = `${FLAGS[d.country] || ''} ${COUNTRY_NAMES[d.country] || d.country || ''} ${d.isp || d.organization || ''}`;
           if (currentVersion === 'v4') {
             buildGrid(d);
+            loadDbComparison(d.ip);
           }
         } catch(e) {
           try {
@@ -843,6 +1091,7 @@
             v4Sub.textContent = '仅获取到 IP，地理位置不可用';
             if (currentVersion === 'v4') {
               buildGrid(ipv4Data);
+              loadDbComparison(ipv4Data.ip);
             }
           } catch(e2) {
             if (ipv4Data) return;
@@ -864,6 +1113,7 @@
           v6Sub.textContent = `${FLAGS[d.country] || ''} ${COUNTRY_NAMES[d.country] || d.country || ''} ${d.isp || d.organization || ''}`;
           if (currentVersion === 'v6') {
             buildGrid(d);
+            loadDbComparison(d.ip);
           }
         } catch(e) {
           try {
@@ -877,6 +1127,7 @@
             v6Sub.textContent = '仅获取到 IP，地理位置不可用';
             if (currentVersion === 'v6') {
               buildGrid(ipv6Data);
+              loadDbComparison(ipv6Data.ip);
             }
           } catch(e2) {
             if (ipv6Data) return;
@@ -893,8 +1144,10 @@
       if (!primaryIP) {
         if (currentVersion === 'v4' && ipv4Data) {
           buildGrid(ipv4Data);
+          loadDbComparison(ipv4Data.ip);
         } else if (currentVersion === 'v6' && ipv6Data) {
           buildGrid(ipv6Data);
+          loadDbComparison(ipv6Data.ip);
         } else {
           grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--muted);">获取网络详情失败，请检查网络连接。</div>`;
         }
@@ -905,6 +1158,10 @@
 
       // Run WebRTC proxy check
       runProxyDetection();
+      
+      // Run additional audits
+      loadBrowserFingerprint();
+      runConnectivityTests();
     }
   </script>
 </body>
