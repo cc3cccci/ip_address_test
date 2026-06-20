@@ -79,44 +79,102 @@
     }
     .subtitle { margin-top: 12px; color: var(--muted); font-size: .95rem; }
 
-    /* ── IP Hero Card ── */
-    .ip-hero {
+    /* ── IP Hero Dual Cards ── */
+    .ip-hero-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    .ip-hero-card {
       background: white;
       border: 1px solid rgba(37, 99, 235, 0.1);
-      border-radius: 24px; padding: 40px 32px; text-align: center;
-      margin-bottom: 28px; position: relative; overflow: hidden;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+      border-radius: 20px;
+      padding: 30px 24px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.03);
     }
-    .ip-hero::before {
+    .ip-hero-card::before {
       content: '';
-      position: absolute; top: -60px; right: -60px;
-      width: 200px; height: 200px; border-radius: 50%;
-      background: radial-gradient(circle, rgba(59,130,246,.2), transparent 70%);
+      position: absolute; top: -40px; right: -40px;
+      width: 120px; height: 120px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(37, 99, 235, 0.06), transparent 70%);
+      transition: opacity 0.3s;
+      opacity: 0.5;
     }
-    .ip-label {
+    .ip-hero-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.12);
+      background: linear-gradient(180deg, white 0%, rgba(37, 99, 235, 0.015) 100%);
+    }
+    .ip-hero-card.active::before {
+      background: radial-gradient(circle, rgba(37, 99, 235, 0.15), transparent 70%);
+      opacity: 1;
+    }
+    .ip-hero-card:hover:not(.active) {
+      border-color: rgba(37, 99, 235, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.06);
+    }
+    .ip-card-label {
       font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
-      color: var(--accent); font-weight: 600; margin-bottom: 12px;
+      color: var(--muted); font-weight: 600; margin-bottom: 8px;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
     }
-    .ip-value {
+    .ip-hero-card.active .ip-card-label {
+      color: var(--accent);
+    }
+    .ip-card-value {
       font-family: 'JetBrains Mono', monospace;
-      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-size: clamp(1.2rem, 3vw, 1.8rem);
       font-weight: 700; letter-spacing: -.01em;
-      background: linear-gradient(90deg, #2563eb, #7c3aed, #0891b2);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      color: var(--text);
       min-height: 1.2em;
+      word-break: break-all;
+      transition: color 0.3s;
     }
-    .ip-value.loading { animation: shimmer 1.5s ease-in-out infinite; }
+    .ip-card-value.loading { animation: shimmer 1.5s ease-in-out infinite; }
     @keyframes shimmer {
       0%,100% { opacity: .4; }
       50%      { opacity: .9; }
     }
+    .ip-card-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 6px;
+      min-height: 1.2em;
+      line-height: 1.4;
+    }
+    .ip-conn-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    .ip-hero-action {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: -8px;
+      margin-bottom: 28px;
+    }
     .ip-copy-btn {
-      margin-top: 16px; padding: 8px 20px; border-radius: 20px;
-      background: rgba(59,130,246,.2); border: 1px solid rgba(59,130,246,.4);
-      color: #93c5fd; font-size: .8rem; font-weight: 500; cursor: pointer;
+      padding: 8px 20px; border-radius: 20px;
+      background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.25);
+      color: var(--accent); font-size: .8rem; font-weight: 500; cursor: pointer;
       transition: all .2s ease; font-family: inherit;
     }
-    .ip-copy-btn:hover { background: rgba(59,130,246,.35); color: #fff; }
+    .ip-copy-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
     .ip-copy-btn:active { transform: scale(.96); }
     .copy-hint { font-size: .75rem; color: var(--success); margin-top: 6px; height: 16px; transition: opacity .3s; opacity: 0; }
     .copy-hint.show { opacity: 1; }
@@ -336,12 +394,24 @@
       <p class="subtitle">实时检测 IP 地址、地理位置、ISP 及更多网络详情</p>
     </header>
 
-    <!-- IP Hero -->
-    <div class="ip-hero">
-      <div class="ip-label">您的公网 IP 地址</div>
-      <div class="ip-value loading" id="ip-display">检测中…</div>
-      <div id="ip-type-badge"></div>
-      <button class="ip-copy-btn" id="copy-btn" onclick="copyIP()">📋 复制 IP</button>
+    <!-- IP Hero Dual Cards -->
+    <div class="ip-hero-container">
+      <!-- IPv4 Card -->
+      <div class="ip-hero-card active" id="ipv4-card" onclick="selectIPVersion('v4')">
+        <div class="ip-card-label">🌐 IPv4 连接 <span id="ipv4-conn-badge"></span></div>
+        <div class="ip-card-value loading" id="ipv4-display">检测中…</div>
+        <div class="ip-card-sub" id="ipv4-sub">正在探测 IPv4 地址...</div>
+      </div>
+      <!-- IPv6 Card -->
+      <div class="ip-hero-card" id="ipv6-card" onclick="selectIPVersion('v6')">
+        <div class="ip-card-label">📡 IPv6 连接 <span id="ipv6-conn-badge"></span></div>
+        <div class="ip-card-value loading" id="ipv6-display">检测中…</div>
+        <div class="ip-card-sub" id="ipv6-sub">正在探测 IPv6 地址...</div>
+      </div>
+    </div>
+
+    <div class="ip-hero-action">
+      <button class="ip-copy-btn" id="copy-btn" onclick="copyIP()">📋 复制当前 IP</button>
       <div class="copy-hint" id="copy-hint">✅ 已复制到剪贴板</div>
     </div>
 
@@ -627,30 +697,73 @@
       }
     }
 
+    let ipv4Data = null;
+    let ipv6Data = null;
+    let primaryIP = '';
+    let currentVersion = 'v4';
+
+    function selectIPVersion(ver) {
+      if (ver === 'v4' && ipv4Data) {
+        currentVersion = 'v4';
+        document.getElementById('ipv4-card').classList.add('active');
+        document.getElementById('ipv6-card').classList.remove('active');
+        buildGrid(ipv4Data);
+      } else if (ver === 'v6' && ipv6Data) {
+        currentVersion = 'v6';
+        document.getElementById('ipv6-card').classList.add('active');
+        document.getElementById('ipv4-card').classList.remove('active');
+        buildGrid(ipv6Data);
+      }
+    }
+
     function copyIP() {
-      if (!cachedIP) return;
-      navigator.clipboard.writeText(cachedIP).then(() => {
+      const currentData = currentVersion === 'v4' ? ipv4Data : ipv6Data;
+      if (!currentData || !currentData.ip) return;
+      navigator.clipboard.writeText(currentData.ip).then(() => {
         const hint = document.getElementById('copy-hint');
         hint.classList.add('show');
         setTimeout(() => hint.classList.remove('show'), 2200);
       });
     }
 
-
+    async function fetchWithTimeout(resource, options = {}) {
+      const { timeout = 4000 } = options;
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      const response = await fetch(resource, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(id);
+      return response;
+    }
 
     loadData();
 
     // Trigger China DB lookup after main data loads (wait a tick)
     async function loadData() {
-      const ipEl     = document.getElementById('ip-display');
-      const badgeEl  = document.getElementById('ip-type-badge');
       const uaEl     = document.getElementById('ua-text');
       const icon     = document.getElementById('refresh-icon');
       const btn      = document.getElementById('refresh-btn');
 
-      ipEl.textContent = '检测中…';
-      ipEl.classList.add('loading');
-      badgeEl.innerHTML = '';
+      const v4Display = document.getElementById('ipv4-display');
+      const v6Display = document.getElementById('ipv6-display');
+      const v4Sub = document.getElementById('ipv4-sub');
+      const v6Sub = document.getElementById('ipv6-sub');
+      const v4Badge = document.getElementById('ipv4-conn-badge');
+      const v6Badge = document.getElementById('ipv6-conn-badge');
+
+      // Reset loading states
+      v4Display.textContent = '检测中…';
+      v4Display.className = 'ip-card-value loading';
+      v4Sub.textContent = '正在探测 IPv4 地址...';
+      v4Badge.innerHTML = '';
+
+      v6Display.textContent = '检测中…';
+      v6Display.className = 'ip-card-value loading';
+      v6Sub.textContent = '正在探测 IPv6 地址...';
+      v6Badge.innerHTML = '';
+
       icon.classList.add('spin');
       btn.disabled = true;
 
@@ -662,45 +775,135 @@
           <div class="card-value skeleton"></div>
         </div>`).join('');
 
+      // Reset data states
+      ipv4Data = null;
+      ipv6Data = null;
+      primaryIP = '';
+      cachedIP = '';
+
+      // 1. Fetch primary connection (which can be v4 or v6)
       try {
         const res = await fetch('/api/ip?t=' + Date.now());
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const d = await res.json();
-        cachedIP = d.ip || '';
-        ipEl.textContent = cachedIP || '无法获取';
-        ipEl.classList.remove('loading');
-        const v6 = isIPv6(cachedIP);
-        badgeEl.innerHTML = `<span class="ip-type-badge ${v6 ? 'badge-purple' : 'badge-blue'}">${v6 ? 'IPv6' : 'IPv4'}</span>`;
+        primaryIP = d.ip || '';
+        cachedIP = primaryIP; // for runProxyDetection
+        const isV6 = isIPv6(primaryIP);
+        currentVersion = isV6 ? 'v6' : 'v4';
+
+        if (isV6) {
+          ipv6Data = d;
+          v6Display.textContent = primaryIP;
+          v6Display.classList.remove('loading');
+          v6Sub.textContent = `${FLAGS[d.country] || ''} ${COUNTRY_NAMES[d.country] || d.country || ''} ${d.asOrg || ''}`;
+          v6Badge.innerHTML = '<span class="ip-conn-badge">当前连接</span>';
+          document.getElementById('ipv6-card').classList.add('active');
+          document.getElementById('ipv4-card').classList.remove('active');
+        } else {
+          ipv4Data = d;
+          v4Display.textContent = primaryIP;
+          v4Display.classList.remove('loading');
+          v4Sub.textContent = `${FLAGS[d.country] || ''} ${COUNTRY_NAMES[d.country] || d.country || ''} ${d.asOrg || ''}`;
+          v4Badge.innerHTML = '<span class="ip-conn-badge">当前连接</span>';
+          document.getElementById('ipv4-card').classList.add('active');
+          document.getElementById('ipv6-card').classList.remove('active');
+        }
         buildGrid(d);
         uaEl.textContent = d.userAgent || navigator.userAgent;
       } catch(e) {
-        try {
-          const r2 = await fetch('https://api.ip.sb/geoip', { headers: { Accept: 'application/json' } });
-          const d2 = await r2.json();
-          cachedIP = d2.ip || '';
-          ipEl.textContent = cachedIP || '无法获取';
-          ipEl.classList.remove('loading');
-          const v6 = isIPv6(cachedIP);
-          badgeEl.innerHTML = `<span class="ip-type-badge ${v6 ? 'badge-purple' : 'badge-blue'}">${v6 ? 'IPv6' : 'IPv4'}</span>`;
-          buildGrid({
-            ip: d2.ip, country: d2.country_code, city: d2.city,
-            region: d2.region, timezone: d2.timezone, continent: '',
-            longitude: d2.longitude, latitude: d2.latitude,
-            asn: d2.asn ? 'AS' + d2.asn : '', asOrg: d2.isp || d2.organization,
-            protocol: location.protocol.replace(':','').toUpperCase(), colo: '',
-          });
-          uaEl.textContent = navigator.userAgent;
-        } catch(e2) {
-          ipEl.textContent = '获取失败';
-          ipEl.classList.remove('loading');
-          uaEl.textContent = navigator.userAgent;
-        }
-      } finally {
-        icon.classList.remove('spin');
-        btn.disabled = false;
+        console.error("Primary fetch failed, using fallback", e);
+        uaEl.textContent = navigator.userAgent;
+        currentVersion = 'v4';
+        document.getElementById('ipv4-card').classList.add('active');
+        document.getElementById('ipv6-card').classList.remove('active');
       }
 
-      // Load auxiliary sections in parallel (non-blocking)
+      // 2. Fetch both versions in parallel (with fallback/timeout)
+      const p1 = (async () => {
+        try {
+          const res = await fetchWithTimeout('https://api-ipv4.ip.sb/geoip', { timeout: 4000 });
+          if (!res.ok) throw new Error();
+          const d = await res.json();
+          ipv4Data = d;
+          v4Display.textContent = d.ip;
+          v4Display.classList.remove('loading');
+          v4Sub.textContent = `${FLAGS[d.country] || ''} ${COUNTRY_NAMES[d.country] || d.country || ''} ${d.isp || d.organization || ''}`;
+          if (currentVersion === 'v4') {
+            buildGrid(d);
+          }
+        } catch(e) {
+          try {
+            const res2 = await fetchWithTimeout('https://api4.ipify.org?format=json', { timeout: 3000 });
+            const d2 = await res2.json();
+            const ip = d2.ip;
+            if (ipv4Data) return;
+            ipv4Data = { ip, country: '', city: '', region: '', timezone: '', longitude: null, latitude: null, asn: '', asOrg: '', protocol: 'IPv4', colo: '' };
+            v4Display.textContent = ip;
+            v4Display.classList.remove('loading');
+            v4Sub.textContent = '仅获取到 IP，地理位置不可用';
+            if (currentVersion === 'v4') {
+              buildGrid(ipv4Data);
+            }
+          } catch(e2) {
+            if (ipv4Data) return;
+            v4Display.textContent = '未检测到';
+            v4Display.classList.remove('loading');
+            v4Sub.textContent = '无 IPv4 连接或探测超时';
+          }
+        }
+      })();
+
+      const p2 = (async () => {
+        try {
+          const res = await fetchWithTimeout('https://api-ipv6.ip.sb/geoip', { timeout: 4000 });
+          if (!res.ok) throw new Error();
+          const d = await res.json();
+          ipv6Data = d;
+          v6Display.textContent = d.ip;
+          v6Display.classList.remove('loading');
+          v6Sub.textContent = `${FLAGS[d.country] || ''} ${COUNTRY_NAMES[d.country] || d.country || ''} ${d.isp || d.organization || ''}`;
+          if (currentVersion === 'v6') {
+            buildGrid(d);
+          }
+        } catch(e) {
+          try {
+            const res2 = await fetchWithTimeout('https://api6.ipify.org?format=json', { timeout: 3000 });
+            const d2 = await res2.json();
+            const ip = d2.ip;
+            if (ipv6Data) return;
+            ipv6Data = { ip, country: '', city: '', region: '', timezone: '', longitude: null, latitude: null, asn: '', asOrg: '', protocol: 'IPv6', colo: '' };
+            v6Display.textContent = ip;
+            v6Display.classList.remove('loading');
+            v6Sub.textContent = '仅获取到 IP，地理位置不可用';
+            if (currentVersion === 'v6') {
+              buildGrid(ipv6Data);
+            }
+          } catch(e2) {
+            if (ipv6Data) return;
+            v6Display.textContent = '未检测到';
+            v6Display.classList.remove('loading');
+            v6Sub.textContent = '无 IPv6 连接或探测超时';
+          }
+        }
+      })();
+
+      await Promise.allSettled([p1, p2]);
+
+      // If we don't have primary data, fallback details grid to whatever we fetched
+      if (!primaryIP) {
+        if (currentVersion === 'v4' && ipv4Data) {
+          buildGrid(ipv4Data);
+        } else if (currentVersion === 'v6' && ipv6Data) {
+          buildGrid(ipv6Data);
+        } else {
+          grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--muted);">获取网络详情失败，请检查网络连接。</div>`;
+        }
+      }
+
+      icon.classList.remove('spin');
+      btn.disabled = false;
+
+      // Run WebRTC proxy check
       runProxyDetection();
     }
   </script>
